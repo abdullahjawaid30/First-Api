@@ -7,18 +7,9 @@ def hello_world():
     return "<p>Hello, World!</p>"
 
 items = [
-    {
-        "name": "Green Apple",
-        "price": 19
-    },
-    {
-        "name": "Momos",
-        "price": 60
-    },
-    {
-        "name": "Chicken Sandwich",
-        "price": 120
-    }
+    {"name": "Green Apple", "price": 19},
+    {"name": "Momos", "price": 60},
+    {"name": "Chicken Sandwich", "price": 120},
 ]
 
 # get-items URL
@@ -39,7 +30,6 @@ def get_item():
 @app.route('/item', methods=['POST'])
 def add_item():
     request_data = request.get_json()
-    # Check if the item already exists
     for item in items:
         if item['name'] == request_data['name']:
             return {"message": "Item already exists"}, 400
