@@ -1,16 +1,16 @@
+import uuid
+import json
 from flask import Flask, request
 
 app = Flask(__name__)
 
-@app.route("/")
-def hello_world():
-    return "<p>Hello, World!</p>"
-
-items = [
-    {"name": "Green Apple", "price": 19},
-    {"name": "Momos", "price": 60},
-    {"name": "Chicken Sandwich", "price": 120},
-]
+# Load initial data from data.json if exists
+try:
+    with open('data.json', 'r') as f:
+        items = json.load(f)
+except FileNotFoundError:
+    # If data.json doesn't exist, initialize with items from db.py
+    from db import items
 
 # get-items URL
 @app.route('/items', methods=['GET'])
@@ -20,42 +20,73 @@ def get_items():
 # get-item individual URL
 @app.route('/item', methods=['GET'])
 def get_item():
-    name = request.args.get('name')
-    for item in items:
-        if name == item['name']:
-            return item
-    return {"message": "Item does not exist"}, 404
+    id = request.args.get('id')
+    try:
+        return items[id]
+    except KeyError:
+        return {"message": "Item does not exist"}, 404
 
 # add-item URL
 @app.route('/item', methods=['POST'])
 def add_item():
     request_data = request.get_json()
-    for item in items:
-        if item['name'] == request_data['name']:
-            return {"message": "Item already exists"}, 400
+    if not request_data:
+        return {"message": "Request body is empty"}, 400
 
-    items.append(request_data)
+    if 'name' not in request_data or 'price' not in request_data:
+        return {"message": "'name' and 'price' must be included in body"}, 400
+
+    # Check if the item already exists
+    for item_id, item_value in items.items():
+        if item_value['name'] == request_data['name']:
+            return {"message": f"Item '{request_data['name']}' already exists with ID {item_id}"}, 400
+
+    new_id = uuid.uuid4().hex
+    items[new_id] = request_data
+
+    # Save the data to the file
+    save_items_to_file()
+
     return {"message": "Item added successfully"}, 201
 
 # update-item URL
 @app.route('/item', methods=['PUT'])
 def update_item():
+    id = request.args.get('id')
+    if not id or id not in items:
+        return {"message": "Given ID not found"}, 404
+
     request_data = request.get_json()
-    for item in items:
-        if item['name'] == request_data['name']:
-            item['price'] = request_data['price']
-            return {"message": "Item updated successfully"}
-    return {"message": "Given record does not exist"}, 404
+    if 'name' not in request_data or 'price' not in request_data:
+        return {"message": "'name' and 'price' must be included in body"}, 400
+
+    # Update the item
+    items[id] = request_data
+
+    # Save the data to the file
+    save_items_to_file()
+
+    return {"message": "Item updated successfully"}, 200
 
 # delete-item URL
 @app.route('/item', methods=['DELETE'])
 def delete_item():
-    name = request.args.get('name')
-    for item in items:
-        if name == item['name']:
-            items.remove(item)
-            return {"message": "Item deleted successfully"}
+    id = request.args.get('id')
+    if id in items:
+        del items[id]
+        
+        # Save the data to the file
+        save_items_to_file()
+
+        return {"message": "Item deleted successfully"}
+    
     return {"message": "Item does not exist"}, 404
+
+# Utility function to save items to the file
+def save_items_to_file():
+    with open('data.json', 'w') as f:
+        json.dump(items, f)
 
 if __name__ == "__main__":
     app.run()
+
